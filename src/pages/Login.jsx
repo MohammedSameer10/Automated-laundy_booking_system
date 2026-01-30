@@ -1,40 +1,84 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { setUser, setProfileImage } from '../store/slices/userSlice'
+import { getRandomProfileImage } from '../utils/profileImages'
 import './Login.css'
 
-const Login = ({ setIsAuthenticated }) => {
+const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleChange = (e) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     })
-    setError('')
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
+      })
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    
+    if (!validateForm()) {
+      return
+    }
+
     setLoading(true)
 
     // Simulate API call
     setTimeout(() => {
-      if (formData.email && formData.password) {
-        // Store token in localStorage (simulated)
-        localStorage.setItem('token', 'mock-jwt-token')
-        localStorage.setItem('user', JSON.stringify({ email: formData.email }))
-        setIsAuthenticated(true)
-        navigate('/dashboard')
-      } else {
-        setError('Please fill in all fields')
+      const profileImage = getRandomProfileImage()
+      const userData = {
+        email: formData.email,
+        name: formData.email.split('@')[0]
       }
+      
+      localStorage.setItem('token', 'mock-jwt-token')
+      localStorage.setItem('user', JSON.stringify(userData))
+      localStorage.setItem('profileImage', profileImage)
+      
+      dispatch(setUser(userData))
+      dispatch(setProfileImage(profileImage))
+      
+      navigate('/dashboard')
       setLoading(false)
     }, 1000)
   }
@@ -48,8 +92,6 @@ const Login = ({ setIsAuthenticated }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="error-message">{error}</div>}
-
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
             <input
@@ -59,8 +101,9 @@ const Login = ({ setIsAuthenticated }) => {
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter your email"
-              required
+              className={errors.email ? 'error' : ''}
             />
+            {errors.email && <span className="field-error">{errors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -72,8 +115,9 @@ const Login = ({ setIsAuthenticated }) => {
               value={formData.password}
               onChange={handleChange}
               placeholder="Enter your password"
-              required
+              className={errors.password ? 'error' : ''}
             />
+            {errors.password && <span className="field-error">{errors.password}</span>}
           </div>
 
           <div className="form-options">
@@ -100,5 +144,3 @@ const Login = ({ setIsAuthenticated }) => {
 }
 
 export default Login
-
-

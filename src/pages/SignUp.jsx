@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { setUser, setProfileImage } from '../store/slices/userSlice'
+import { getRandomProfileImage } from '../utils/profileImages'
 import './SignUp.css'
 
 const SignUp = () => {
@@ -10,49 +13,105 @@ const SignUp = () => {
     confirmPassword: '',
     phone: ''
   })
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  const validatePhone = (phone) => {
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/
+    return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
+  }
+
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required'
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters'
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!validateEmail(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required'
+    } else if (!validatePhone(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number'
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    } else if (!/(?=.*[a-z])/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one lowercase letter'
+    } else if (!/(?=.*[A-Z])/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter'
+    } else if (!/(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one number'
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password'
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleChange = (e) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     })
-    setError('')
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
+      })
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    
+    if (!validateForm()) {
+      return
+    }
+
     setLoading(true)
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
-      setLoading(false)
-      return
-    }
 
     // Simulate API call
     setTimeout(() => {
-      if (formData.name && formData.email && formData.password && formData.phone) {
-        // Store token in localStorage (simulated)
-        localStorage.setItem('token', 'mock-jwt-token')
-        localStorage.setItem('user', JSON.stringify({ 
-          name: formData.name,
-          email: formData.email 
-        }))
-        navigate('/dashboard')
-      } else {
-        setError('Please fill in all fields')
+      const profileImage = getRandomProfileImage()
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone
       }
+      
+      localStorage.setItem('token', 'mock-jwt-token')
+      localStorage.setItem('user', JSON.stringify(userData))
+      localStorage.setItem('profileImage', profileImage)
+      
+      dispatch(setUser(userData))
+      dispatch(setProfileImage(profileImage))
+      
+      navigate('/dashboard')
       setLoading(false)
     }, 1000)
   }
@@ -66,8 +125,6 @@ const SignUp = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="error-message">{error}</div>}
-
           <div className="form-group">
             <label htmlFor="name">Full Name</label>
             <input
@@ -77,8 +134,9 @@ const SignUp = () => {
               value={formData.name}
               onChange={handleChange}
               placeholder="Enter your full name"
-              required
+              className={errors.name ? 'error' : ''}
             />
+            {errors.name && <span className="field-error">{errors.name}</span>}
           </div>
 
           <div className="form-group">
@@ -90,8 +148,9 @@ const SignUp = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter your email"
-              required
+              className={errors.email ? 'error' : ''}
             />
+            {errors.email && <span className="field-error">{errors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -103,8 +162,9 @@ const SignUp = () => {
               value={formData.phone}
               onChange={handleChange}
               placeholder="Enter your phone number"
-              required
+              className={errors.phone ? 'error' : ''}
             />
+            {errors.phone && <span className="field-error">{errors.phone}</span>}
           </div>
 
           <div className="form-group">
@@ -116,8 +176,12 @@ const SignUp = () => {
               value={formData.password}
               onChange={handleChange}
               placeholder="Create a password"
-              required
+              className={errors.password ? 'error' : ''}
             />
+            {errors.password && <span className="field-error">{errors.password}</span>}
+            <small className="password-hint">
+              Must contain: uppercase, lowercase, number, min 6 characters
+            </small>
           </div>
 
           <div className="form-group">
@@ -129,8 +193,9 @@ const SignUp = () => {
               value={formData.confirmPassword}
               onChange={handleChange}
               placeholder="Confirm your password"
-              required
+              className={errors.confirmPassword ? 'error' : ''}
             />
+            {errors.confirmPassword && <span className="field-error">{errors.confirmPassword}</span>}
           </div>
 
           <div className="form-options">
@@ -156,5 +221,3 @@ const SignUp = () => {
 }
 
 export default SignUp
-
-

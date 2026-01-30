@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { addBooking } from '../store/slices/bookingsSlice'
 import './Booking.css'
 
 const Booking = () => {
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [chatInput, setChatInput] = useState('')
+  const [activeTab, setActiveTab] = useState('voice') // 'voice' or 'text'
   const [bookingDetails, setBookingDetails] = useState({
     serviceType: '',
     quantity: '',
@@ -13,11 +17,17 @@ const Booking = () => {
     specialInstructions: ''
   })
   const [messages, setMessages] = useState([
-    { type: 'bot', text: 'Hello! I\'m your voice assistant. How can I help you book a laundry service today?' }
+    { type: 'bot', text: 'Hello! I\'m your assistant. You can use voice commands or type your message. How can I help you book a laundry service today?' }
   ])
   const [isProcessing, setIsProcessing] = useState(false)
   const recognitionRef = useRef(null)
+  const chatEndRef = useRef(null)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -52,7 +62,6 @@ const Booking = () => {
 
       recognitionRef.current.onend = () => {
         if (isListening) {
-          // Restart if still listening
           try {
             recognitionRef.current.start()
           } catch (e) {
@@ -70,10 +79,10 @@ const Booking = () => {
   }, [isListening])
 
   const addMessage = (type, text) => {
-    setMessages(prev => [...prev, { type, text }])
+    setMessages(prev => [...prev, { type, text, timestamp: new Date() }])
   }
 
-  const processVoiceCommand = (command) => {
+  const processCommand = (command) => {
     const lowerCommand = command.toLowerCase()
     setIsProcessing(true)
 
@@ -124,8 +133,12 @@ const Booking = () => {
           specialInstructions: ''
         })
         addMessage('bot', 'Booking cancelled. How can I help you start a new booking?')
+      } else if (lowerCommand.includes('hello') || lowerCommand.includes('hi')) {
+        addMessage('bot', 'Hello! How can I assist you with your laundry booking today?')
+      } else if (lowerCommand.includes('help')) {
+        addMessage('bot', 'I can help you book laundry services. You can tell me: service type (wash, dry clean, iron), quantity, pickup date and time. Just speak naturally or type your request!')
       } else {
-        addMessage('bot', 'I understand. Could you please specify: service type (wash, dry clean, or iron), quantity, and pickup time?')
+        addMessage('bot', 'I understand. Could you please specify: service type (wash, dry clean, or iron), quantity, and pickup time? Or type "help" for more information.')
       }
       setIsProcessing(false)
     }, 1000)
@@ -142,7 +155,7 @@ const Booking = () => {
       setIsListening(false)
       if (transcript.trim()) {
         addMessage('user', transcript)
-        processVoiceCommand(transcript)
+        processCommand(transcript)
         setTranscript('')
       }
     } else {
@@ -156,13 +169,29 @@ const Booking = () => {
     }
   }
 
+  const handleTextSubmit = (e) => {
+    e.preventDefault()
+    if (!chatInput.trim()) return
+
+    addMessage('user', chatInput)
+    processCommand(chatInput)
+    setChatInput('')
+  }
+
   const handleSubmitBooking = () => {
     if (!bookingDetails.serviceType || !bookingDetails.quantity) {
       addMessage('bot', 'Please provide service type and quantity before confirming.')
       return
     }
 
-    // Simulate booking submission
+    const booking = {
+      ...bookingDetails,
+      id: Date.now().toString(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    }
+
+    dispatch(addBooking(booking))
     addMessage('bot', 'Booking confirmed! Your laundry service has been scheduled. You will receive a confirmation email shortly.')
     
     setTimeout(() => {
@@ -180,19 +209,36 @@ const Booking = () => {
         <button onClick={() => navigate('/dashboard')} className="back-button">
           ← Back to Dashboard
         </button>
-        <h2>Voice Laundry Booking</h2>
+        <h2>Laundry Booking</h2>
         <div></div>
       </nav>
 
       <div className="booking-content">
         <div className="booking-main">
-          <div className="voice-chat-section">
+          <div className="chat-section">
+            <div className="chat-tabs">
+              <button 
+                className={`tab-button ${activeTab === 'voice' ? 'active' : ''}`}
+                onClick={() => setActiveTab('voice')}
+              >
+                🎤 Voice Chat
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'text' ? 'active' : ''}`}
+                onClick={() => setActiveTab('text')}
+              >
+                💬 Text Chat
+              </button>
+            </div>
+
             <div className="chat-header">
-              <h3>Voice Assistant</h3>
-              <div className={`listening-indicator ${isListening ? 'active' : ''}`}>
-                <span className="pulse"></span>
-                {isListening ? 'Listening...' : 'Ready'}
-              </div>
+              <h3>Assistant</h3>
+              {activeTab === 'voice' && (
+                <div className={`listening-indicator ${isListening ? 'active' : ''}`}>
+                  <span className="pulse"></span>
+                  {isListening ? 'Listening...' : 'Ready'}
+                </div>
+              )}
             </div>
 
             <div className="chat-messages">
@@ -212,29 +258,45 @@ const Booking = () => {
                   </div>
                 </div>
               )}
+              <div ref={chatEndRef} />
             </div>
 
-            <div className="voice-controls">
-              <div className="transcript-display">
-                {transcript && <p>You said: {transcript}</p>}
+            {activeTab === 'voice' ? (
+              <div className="voice-controls">
+                <div className="transcript-display">
+                  {transcript && <p>You said: {transcript}</p>}
+                </div>
+                <button
+                  onClick={toggleListening}
+                  className={`voice-button ${isListening ? 'listening' : ''}`}
+                >
+                  {isListening ? (
+                    <>
+                      <span className="mic-icon">🎤</span>
+                      Stop Listening
+                    </>
+                  ) : (
+                    <>
+                      <span className="mic-icon">🎤</span>
+                      Start Voice Command
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={toggleListening}
-                className={`voice-button ${isListening ? 'listening' : ''}`}
-              >
-                {isListening ? (
-                  <>
-                    <span className="mic-icon">🎤</span>
-                    Stop Listening
-                  </>
-                ) : (
-                  <>
-                    <span className="mic-icon">🎤</span>
-                    Start Voice Command
-                  </>
-                )}
-              </button>
-            </div>
+            ) : (
+              <form onSubmit={handleTextSubmit} className="text-chat-form">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type your message..."
+                  className="chat-input"
+                />
+                <button type="submit" className="send-button">
+                  Send
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="booking-form-section">
@@ -305,5 +367,3 @@ const Booking = () => {
 }
 
 export default Booking
-
-

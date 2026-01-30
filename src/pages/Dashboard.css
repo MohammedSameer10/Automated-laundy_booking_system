@@ -35,6 +35,20 @@
   font-weight: 600;
 }
 
+.profile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  border: 2px solid #667eea;
+  transition: transform 0.3s ease;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.1);
+}
+
 .nav-button {
   padding: 10px 20px;
   border: none;
@@ -196,6 +210,56 @@
 
 .bookings-list {
   min-height: 200px;
+}
+
+.booking-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  transition: transform 0.3s ease;
+}
+
+.booking-item:hover {
+  transform: translateX(5px);
+  background: #f0f0f0;
+}
+
+.booking-info h4 {
+  color: #333;
+  margin-bottom: 5px;
+  font-size: 16px;
+}
+
+.booking-info p {
+  color: #666;
+  font-size: 14px;
+}
+
+.booking-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.booking-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.booking-status.completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.booking-status.cancelled {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .empty-state {
